@@ -1,7 +1,5 @@
 
 # %% imports
-from os import name
-from typing import ValuesView
 import bpy
 import json
 
@@ -161,23 +159,16 @@ class Materialvalues:
         """ returns a dict of variable - names:value"""
         dict = {"val_diffuse": self.diffuse, "val_alpha": self.alpha, "val_roughness": self.roughness,
                 "val_specular": self.specular, "val_metal": self.metal, "val_normal": self.normal, "val_subsurface": self.subsurface}
-        print(dict)
         return dict
     pass
-
 
 class Material:
     """ { "name":"stringName", "maps":{TextureMaps}, "values":{MaterialValues}}"""
 
     name = ""
+    type = ""
     texturemaps = TextureSet()
     materialvalues = Materialvalues()
-
-    def assign(self, name: str, texturemaps: TextureSet, values: Materialvalues):
-        self.name = name
-        self.texturemaps = texturemaps
-        self.materialvalues = values
-        pass
 
     def serialize(self):
         """ returns a dict with all variables.
@@ -185,6 +176,7 @@ class Material:
 
         dict = {
             "name": self.name,
+            "type": self.type,
             "maps": self.texturemaps.serialize(),
             "values": self.materialvalues.serialize()
         }
@@ -436,10 +428,22 @@ class MaterialExporter:
 
         return values
 
-    def createMaterial(self, name: str, textures: TextureSet, values: Materialvalues):
+    def findShaderType(self, material: str):
+        shaderType = "Default"
+
+        grpNode = self.findGroupNode(material=material)
+        if(grpNode == None or grpNode == ""):
+            pass
+        else:
+            shaderType = grpNode.node_tree.name
+
+        return shaderType
+
+    def createMaterial(self, name: str, materialtype: str, textures: TextureSet, values: Materialvalues):
         material = Material()
 
         material.name = name
+        material.type = materialtype
         material.texturemaps = textures
         material.materialvalues = values
 
@@ -519,18 +523,13 @@ class MaterialExporter:
 
         return out
 
-    def exportMaterials(self, material, texturemaps: TextureSet):
-        """ return a json string with the materials and texture maps"""
-        material = {"name": "", "maps": texturemaps.serialize(), "values": 1}
-        return json.dumps(material)
-
     def initializeMaterials(self, material_List: str):
         """ 
         Initialize Materials of type objMaterial() from a materialList (string).
 
-        Find Textures and Values from the 1st Grp Node of Node the Output
+        Find Textures, Values and the Type from the 1st Grp Node, attached to MaterialOutput->Surface
+        Shader type -> Grp Node Name
         """
-
         materials = []
 
         for material in material_List:
@@ -542,6 +541,9 @@ class MaterialExporter:
 
             # Find Material Values
             newmaterial.materialvalues = self.findValues(material)
+
+            # Find Shader Type (Grp Node Name)
+            newmaterial.type = self.findShaderType(material)
 
             materials.append(newmaterial.serialize())
 
@@ -585,5 +587,3 @@ def main():
 classes = []
 if __name__ == "__main__":
     main()
-
-# %%
